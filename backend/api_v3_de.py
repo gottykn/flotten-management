@@ -25,45 +25,55 @@ from flotte_v3_de import (
 # -----------------------------------------------------------------------------
 # App & OpenAPI
 # -----------------------------------------------------------------------------
+# api_v3_de.py - CORS-Sektion komplett ersetzen
+
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 app = FastAPI(title="Flotten-Management API (DE)", version="0.5.0")
 
-# VOLLSTÄNDIGE CORS-Konfiguration für Render.com
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://flotte-app.onrender.com",
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:4173"
-    ],
-    allow_credentials=False,  # Wichtig: False bei spezifischen Origins
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-    allow_headers=[
-        "Accept",
-        "Accept-Encoding", 
-        "Accept-Language",
-        "Authorization",
-        "Cache-Control",
-        "Content-Language",
-        "Content-Type",
-        "DNT",
-        "If-Modified-Since",
-        "Keep-Alive",
-        "Origin",
-        "User-Agent",
-        "X-Requested-With",
-    ],
-    expose_headers=["*"],
-    max_age=86400,  # 24 Stunden
-)
+# 🚨 ENTFERNEN Sie diese Zeile komplett:
+# app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# Zusätzlicher OPTIONS-Handler für problematische Preflight-Requests
-@app.options("/{full_path:path}")
-async def options_handler():
-    return {"message": "OK"}
+# ✅ NEUE Render.com-kompatible CORS-Lösung:
+class RenderCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        # Handle preflight requests
+        if request.method == "OPTIONS":
+            response = Response()
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, User-Agent, Cache-Control, Pragma"
+            response.headers["Access-Control-Max-Age"] = "86400"
+            response.headers["Access-Control-Allow-Credentials"] = "false"
+            return response
+
+        # Process actual requests
+        response = await call_next(request)
+        
+        # Add CORS headers to all responses
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, User-Agent, Cache-Control, Pragma"
+        response.headers["Access-Control-Expose-Headers"] = "*"
+        
+        return response
+
+# Middleware anwenden
+app.add_middleware(RenderCORSMiddleware)
+
+# Expliziter OPTIONS-Handler als Backup
+@app.options("/{path:path}")
+async def universal_options():
+    return Response(
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
+            "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, User-Agent, Cache-Control, Pragma",
+        }
+    )
+
 
 # DB anlegen (falls nicht vorhanden)
 init_db()
