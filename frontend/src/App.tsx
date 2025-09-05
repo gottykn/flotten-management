@@ -51,16 +51,51 @@ function q(params: Record<string, any>) {
 }
 
 async function apiGet<T>(baseUrl: string, path: string, params: Record<string, any> = {}): Promise<T> {
-  const res = await fetch(`${baseUrl}${path}${q(params)}`);
-  if (!res.ok) throw new Error(await res.text());
+  const url = `${baseUrl}${path}${q(params)}`;
+  console.log(`Fetching: ${url}`); // Debug-Log
+  
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    // Wichtig für CORS
+    mode: 'cors',
+    credentials: 'omit', // oder 'include' wenn Authentication benötigt
+  });
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`API Error (${res.status}):`, errorText);
+    throw new Error(`HTTP ${res.status}: ${errorText}`);
+  }
   return res.json();
 }
 
 async function apiPost<T>(baseUrl: string, path: string, body: any): Promise<T> {
-  const res = await fetch(`${baseUrl}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body ?? {}) });
-  if (!res.ok) throw new Error(await res.text());
+  const url = `${baseUrl}${path}`;
+  console.log(`Posting to: ${url}`); // Debug-Log
+  
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    body: JSON.stringify(body ?? {}),
+    mode: 'cors',
+    credentials: 'omit',
+  });
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`API Error (${res.status}):`, errorText);
+    throw new Error(`HTTP ${res.status}: ${errorText}`);
+  }
   return res.json();
 }
+
 
 // ---------------------------------------------
 // UI Utilities
