@@ -42,7 +42,20 @@ def _custom_openapi():
 app.openapi = _custom_openapi
 
 # CORS für lokale UI
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# Erlaubte Origins (Quellen) für Anfragen
+# Gib hier explizit die URL deines Frontends an
+origins = [
+    "https://flotte-app.onrender.com",
+    # Optional: Füge hier deine lokale Entwicklungs-URL hinzu, z.B. "http://localhost:5173"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True, # Wichtig für zukünftige Erweiterungen (z.B. Login)
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # DB anlegen (falls nicht vorhanden)
 init_db()
