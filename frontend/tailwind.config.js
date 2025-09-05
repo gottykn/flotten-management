@@ -8,5 +8,8 @@ export default {
     extend: {},
   },
   plugins: [],
-  important: true,
+  corePlugins: {
+    preflight: false, // Verhindert Konflikte
+  },
 }
+

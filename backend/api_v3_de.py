@@ -1,83 +1,35 @@
-# api_v3_de.py - FINALE RENDER.COM-LÖSUNG (VOLLSTÄNDIG)
+# api_v3_de.py - RENDER.COM CORS FIX
 from datetime import date, datetime
 from typing import Optional, List, Dict
 
-from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import Response, PlainTextResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from flotte_v3_de import (
     SessionLocal, init_db,
-    # Enums
     GeraetStatus, StandortTyp, SatzEinheit, VermietStatus, PosTyp,
-    # Funktionen
     mietpark_anlegen, firma_anlegen, geraet_anlegen, kunde_anlegen, baustelle_anlegen,
     vermietung_anlegen, reservierung_starten, vermietung_schliessen, wartung_hinzufuegen,
     position_hinzufuegen, rechnung_hinzufuegen,
     vermietung_abrechnung, geraet_finanz_uebersicht, flotten_auslastung_iststunden,
-    # Modelle
     Geraet, Kunde, Mietpark, Baustelle, Vermietung, VermietungPosition, Rechnung, Firma
 )
 
-# -----------------------------------------------------------------------------
-# App & OpenAPI
-# -----------------------------------------------------------------------------
+# 🚨 KRITISCH: App VOR Middleware erstellen
 app = FastAPI(title="Flotten-Management API (DE)", version="0.5.0")
 
-# OpenAPI stabil cachen (verhindert endlose Generierung)
-_openapi_cache = None
-def _custom_openapi():
-    global _openapi_cache
-    if _openapi_cache:
-        return _openapi_cache
-    _openapi_cache = get_openapi(
-        title=app.title,
-        version=app.version,
-        routes=app.routes,
-    )
-    return _openapi_cache
+# 🚨 KRITISCH: Standard CORS-Middleware (funktioniert auf Render)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,  # Wichtig für Render!
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-try:
-    from fastapi.openapi.utils import get_openapi
-    app.openapi = _custom_openapi
-except ImportError:
-    pass  # Fallback falls Import fehlschlägt
-
-# 🚨 CRITICAL: Render.com CORS-Killer
-class RenderCORSKiller(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # Log für Debugging
-        print(f"🔍 Request: {request.method} {request.url} from {request.headers.get('origin', 'unknown')}")
-        
-        # SOFORTIGE Antwort für alle OPTIONS
-        if request.method == "OPTIONS":
-            return Response(
-                status_code=200,
-                headers={
-                    "access-control-allow-origin": "*",
-                    "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
-                    "access-control-allow-headers": "*",
-                    "access-control-max-age": "86400",
-                }
-            )
-        
-        # Normale Requests verarbeiten
-        response = await call_next(request)
-        
-        # CORS-Headers zu JEDER Response hinzufügen
-        response.headers["access-control-allow-origin"] = "*"
-        response.headers["access-control-allow-methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
-        response.headers["access-control-allow-headers"] = "*"
-        
-        print(f"✅ Response: {response.status_code}")
-        return response
-
-# Middleware aktivieren
-app.add_middleware(RenderCORSKiller)
-
-# DB anlegen (falls nicht vorhanden)
+# DB initialisieren
 init_db()
 
 # -----------------------------------------------------------------------------
@@ -265,20 +217,31 @@ class GeraetFinanzenOut(BaseModel):
 def _session():
     return SessionLocal()
 
-def _vm_to_out(v: Vermietung) -> VermietungOut:
-    return VermietungOut(
-        id=v.id, geraet_id=v.geraet_id, kunde_id=v.kunde_id, baustelle_id=v.baustelle_id,
-        start_datum=v.start_datum, end_datum=v.end_datum, satz_wert=v.satz_wert,
-        satz_einheit=v.satz_einheit, status=v.status, stunden_ist=v.stunden_ist,
-        zaehler_start=v.zaehler_start, zaehler_ende=v.zaehler_ende, notizen=v.notizen
-    )
+def _vm_to_out(v: Vermietung):
+    return {
+        "id": v.id,
+        "geraet_id": v.geraet_id,
+        "kunde_id": v.kunde_id,
+        "baustelle_id": v.baustelle_id,
+        "start_datum": v.start_datum,
+        "end_datum": v.end_datum,
+        "satz_wert": v.satz_wert,
+        "satz_einheit": v.satz_einheit,
+        "status": v.status,
+        "stunden_ist": v.stunden_ist,
+        "zaehler_start": v.zaehler_start,
+        "zaehler_ende": v.zaehler_ende,
+        "notizen": v.notizen
+    }
+
+# 🚨 HEALTH-CHECK mit CORS-Test
+@app.get("/health")
+def health():
+    return {"status": "ok", "time": datetime.utcnow().isoformat() + "Z", "cors": "fixed"}
 
 # -----------------------------------------------------------------------------
 # Basis
 # -----------------------------------------------------------------------------
-@app.get("/health")
-def health():
-    return {"status": "ok", "time": datetime.utcnow().isoformat() + "Z", "cors": "enabled"}
 
 # 🔧 BACKUP OPTIONS-HANDLER
 @app.options("/{path:path}")
