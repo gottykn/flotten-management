@@ -1,25 +1,49 @@
-# api_v3_de.py - FINALE RENDER.COM-LÖSUNG
+# api_v3_de.py - FINALE RENDER.COM-LÖSUNG (VOLLSTÄNDIG)
 from datetime import date, datetime
 from typing import Optional, List, Dict
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
 
-# Ihre Imports bleiben gleich...
 from flotte_v3_de import (
     SessionLocal, init_db,
+    # Enums
     GeraetStatus, StandortTyp, SatzEinheit, VermietStatus, PosTyp,
+    # Funktionen
     mietpark_anlegen, firma_anlegen, geraet_anlegen, kunde_anlegen, baustelle_anlegen,
     vermietung_anlegen, reservierung_starten, vermietung_schliessen, wartung_hinzufuegen,
     position_hinzufuegen, rechnung_hinzufuegen,
     vermietung_abrechnung, geraet_finanz_uebersicht, flotten_auslastung_iststunden,
+    # Modelle
     Geraet, Kunde, Mietpark, Baustelle, Vermietung, VermietungPosition, Rechnung, Firma
 )
 
+# -----------------------------------------------------------------------------
+# App & OpenAPI
+# -----------------------------------------------------------------------------
 app = FastAPI(title="Flotten-Management API (DE)", version="0.5.0")
+
+# OpenAPI stabil cachen (verhindert endlose Generierung)
+_openapi_cache = None
+def _custom_openapi():
+    global _openapi_cache
+    if _openapi_cache:
+        return _openapi_cache
+    _openapi_cache = get_openapi(
+        title=app.title,
+        version=app.version,
+        routes=app.routes,
+    )
+    return _openapi_cache
+
+try:
+    from fastapi.openapi.utils import get_openapi
+    app.openapi = _custom_openapi
+except ImportError:
+    pass  # Fallback falls Import fehlschlägt
 
 # 🚨 CRITICAL: Render.com CORS-Killer
 class RenderCORSKiller(BaseHTTPMiddleware):
@@ -241,7 +265,17 @@ class GeraetFinanzenOut(BaseModel):
 def _session():
     return SessionLocal()
 
-# 🚨 KRITISCHER HEALTH-CHECK
+def _vm_to_out(v: Vermietung) -> VermietungOut:
+    return VermietungOut(
+        id=v.id, geraet_id=v.geraet_id, kunde_id=v.kunde_id, baustelle_id=v.baustelle_id,
+        start_datum=v.start_datum, end_datum=v.end_datum, satz_wert=v.satz_wert,
+        satz_einheit=v.satz_einheit, status=v.status, stunden_ist=v.stunden_ist,
+        zaehler_start=v.zaehler_start, zaehler_ende=v.zaehler_ende, notizen=v.notizen
+    )
+
+# -----------------------------------------------------------------------------
+# Basis
+# -----------------------------------------------------------------------------
 @app.get("/health")
 def health():
     return {"status": "ok", "time": datetime.utcnow().isoformat() + "Z", "cors": "enabled"}
@@ -257,20 +291,6 @@ async def catch_all_options(path: str):
             "access-control-allow-headers": "*",
         }
     )
-def _vm_to_out(v: Vermietung) -> VermietungOut:
-    return VermietungOut(
-        id=v.id, geraet_id=v.geraet_id, kunde_id=v.kunde_id, baustelle_id=v.baustelle_id,
-        start_datum=v.start_datum, end_datum=v.end_datum, satz_wert=v.satz_wert,
-        satz_einheit=v.satz_einheit, status=v.status, stunden_ist=v.stunden_ist,
-        zaehler_start=v.zaehler_start, zaehler_ende=v.zaehler_ende, notizen=v.notizen
-    )
-
-# -----------------------------------------------------------------------------
-# Basis
-# -----------------------------------------------------------------------------
-@app.get("/health")
-def health():
-    return {"status": "ok", "time": datetime.utcnow().isoformat() + "Z"}
 
 # Debug-Helfer: zeigt OpenAPI oder Traceback im Klartext
 @app.get("/_debug/openapi_raw")
