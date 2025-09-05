@@ -143,7 +143,7 @@ const TABS = ["geraete", "vermietungen", "berichte", "einnahmen", "stammdaten"] 
 type Tab = typeof TABS[number];
 
 export default function RentalFleetApp() {
-  const [baseUrl, setBaseUrl] = useState((import.meta as any).env?.VITE_API_BASE_URL ?? "http://127.0.0.1:8001");
+  const [baseUrl, setBaseUrl] = useState("https://flotte-api.onrender.com");
   const [tab, setTab] = useState<"geraete" | "vermietungen" | "berichte" | "einnahmen" | "stammdaten">("geraete");
   const [toast, setToast] = useState<string | null>(null);
 
