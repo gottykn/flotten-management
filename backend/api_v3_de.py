@@ -54,7 +54,13 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True, # Wichtig für zukünftige Erweiterungen (z.B. Login)
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language", 
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+    ]
 )
 
 # DB anlegen (falls nicht vorhanden)
