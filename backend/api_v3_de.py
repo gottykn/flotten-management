@@ -1,120 +1,57 @@
-# api_v3_de.py
+# api_v3_de.py - FINALE RENDER.COM-LÖSUNG
 from datetime import date, datetime
 from typing import Optional, List, Dict
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import Response, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select
 
+# Ihre Imports bleiben gleich...
 from flotte_v3_de import (
     SessionLocal, init_db,
-    # Enums
     GeraetStatus, StandortTyp, SatzEinheit, VermietStatus, PosTyp,
-    # Funktionen
     mietpark_anlegen, firma_anlegen, geraet_anlegen, kunde_anlegen, baustelle_anlegen,
     vermietung_anlegen, reservierung_starten, vermietung_schliessen, wartung_hinzufuegen,
     position_hinzufuegen, rechnung_hinzufuegen,
     vermietung_abrechnung, geraet_finanz_uebersicht, flotten_auslastung_iststunden,
-    # Modelle
     Geraet, Kunde, Mietpark, Baustelle, Vermietung, VermietungPosition, Rechnung, Firma
 )
 
-# -----------------------------------------------------------------------------
-# App & OpenAPI
-# -----------------------------------------------------------------------------
-# api_v3_de.py - CORS-Sektion komplett ersetzen
-
-# api_v3_de.py - KOMPLETT NEUE CORS-Lösung
-
-from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import Response
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-import logging
-
 app = FastAPI(title="Flotten-Management API (DE)", version="0.5.0")
 
-# 🚨 KRITISCH: Render.com-spezifische CORS-Lösung
-class UltimateCORSMiddleware(BaseHTTPMiddleware):
+# 🚨 CRITICAL: Render.com CORS-Killer
+class RenderCORSKiller(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Logge alle eingehenden Requests für Debugging
-        print(f"🔍 Request: {request.method} {request.url}")
-        print(f"🔍 Headers: {dict(request.headers)}")
+        # Log für Debugging
+        print(f"🔍 Request: {request.method} {request.url} from {request.headers.get('origin', 'unknown')}")
         
-        # Sofortige Antwort für alle OPTIONS-Requests
+        # SOFORTIGE Antwort für alle OPTIONS
         if request.method == "OPTIONS":
-            response = Response()
-            response.headers.update({
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Max-Age": "86400",
-                "Access-Control-Allow-Credentials": "false",
-                "Content-Length": "0"
-            })
-            print("✅ OPTIONS Request - Preflight Response sent")
-            return response
-
-        # Verarbeite normale Requests
-        try:
-            response = await call_next(request)
-        except Exception as e:
-            print(f"❌ Request failed: {e}")
-            response = Response("Internal Server Error", status_code=500)
+            return Response(
+                status_code=200,
+                headers={
+                    "access-control-allow-origin": "*",
+                    "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
+                    "access-control-allow-headers": "*",
+                    "access-control-max-age": "86400",
+                }
+            )
         
-        # CORS-Headers zu allen Responses hinzufügen
-        response.headers.update({
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Expose-Headers": "*"
-        })
+        # Normale Requests verarbeiten
+        response = await call_next(request)
+        
+        # CORS-Headers zu JEDER Response hinzufügen
+        response.headers["access-control-allow-origin"] = "*"
+        response.headers["access-control-allow-methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+        response.headers["access-control-allow-headers"] = "*"
         
         print(f"✅ Response: {response.status_code}")
         return response
 
-# Middleware anwenden
-app.add_middleware(UltimateCORSMiddleware)
-
-# ZUSÄTZLICH: Backup Standard CORS (falls Custom-Middleware versagt)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Explizite OPTIONS-Handler für alle Routen
-@app.options("/{path:path}")
-async def options_handler(path: str):
-    print(f"🔧 Explicit OPTIONS handler for /{path}")
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
-
-# Root OPTIONS handler
-@app.options("/")
-async def root_options():
-    print("🔧 Root OPTIONS handler")
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
-
-
+# Middleware aktivieren
+app.add_middleware(RenderCORSKiller)
 
 # DB anlegen (falls nicht vorhanden)
 init_db()
@@ -304,6 +241,22 @@ class GeraetFinanzenOut(BaseModel):
 def _session():
     return SessionLocal()
 
+# 🚨 KRITISCHER HEALTH-CHECK
+@app.get("/health")
+def health():
+    return {"status": "ok", "time": datetime.utcnow().isoformat() + "Z", "cors": "enabled"}
+
+# 🔧 BACKUP OPTIONS-HANDLER
+@app.options("/{path:path}")
+async def catch_all_options(path: str):
+    return Response(
+        status_code=200,
+        headers={
+            "access-control-allow-origin": "*",
+            "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
+            "access-control-allow-headers": "*",
+        }
+    )
 def _vm_to_out(v: Vermietung) -> VermietungOut:
     return VermietungOut(
         id=v.id, geraet_id=v.geraet_id, kunde_id=v.kunde_id, baustelle_id=v.baustelle_id,
