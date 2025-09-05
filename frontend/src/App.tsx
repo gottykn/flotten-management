@@ -52,48 +52,71 @@ function q(params: Record<string, any>) {
 
 async function apiGet<T>(baseUrl: string, path: string, params: Record<string, any> = {}): Promise<T> {
   const url = `${baseUrl}${path}${q(params)}`;
-  console.log(`Fetching: ${url}`); // Debug-Log
+  console.log(`🔍 GET: ${url}`);
   
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    // Wichtig für CORS
-    mode: 'cors',
-    credentials: 'omit', // oder 'include' wenn Authentication benötigt
-  });
-  
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error(`API Error (${res.status}):`, errorText);
-    throw new Error(`HTTP ${res.status}: ${errorText}`);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-cache',
+    });
+    
+    console.log(`✅ Response status: ${res.status}`);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`❌ API Error (${res.status}):`, errorText);
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+    
+    const data = await res.json();
+    console.log(`📦 Data received:`, data);
+    return data;
+  } catch (error) {
+    console.error(`❌ Fetch failed for ${url}:`, error);
+    throw error;
   }
-  return res.json();
 }
 
 async function apiPost<T>(baseUrl: string, path: string, body: any): Promise<T> {
   const url = `${baseUrl}${path}`;
-  console.log(`Posting to: ${url}`); // Debug-Log
+  console.log(`📤 POST: ${url}`, body);
   
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { 
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-    body: JSON.stringify(body ?? {}),
-    mode: 'cors',
-    credentials: 'omit',
-  });
-  
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error(`API Error (${res.status}):`, errorText);
-    throw new Error(`HTTP ${res.status}: ${errorText}`);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      },
+      body: JSON.stringify(body ?? {}),
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-cache',
+    });
+    
+    console.log(`✅ Response status: ${res.status}`);
+    
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error(`❌ API Error (${res.status}):`, errorText);
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+    
+    const data = await res.json();
+    console.log(`📦 Data received:`, data);
+    return data;
+  } catch (error) {
+    console.error(`❌ Post failed for ${url}:`, error);
+    throw error;
   }
-  return res.json();
 }
 
 

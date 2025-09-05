@@ -25,43 +25,45 @@ from flotte_v3_de import (
 # -----------------------------------------------------------------------------
 # App & OpenAPI
 # -----------------------------------------------------------------------------
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Flotten-Management API (DE)", version="0.5.0")
 
-# OpenAPI stabil cachen (verhindert endlose Generierung)
-_openapi_cache = None
-def _custom_openapi():
-    global _openapi_cache
-    if _openapi_cache:
-        return _openapi_cache
-    _openapi_cache = get_openapi(
-        title=app.title,
-        version=app.version,
-        routes=app.routes,
-    )
-    return _openapi_cache
-app.openapi = _custom_openapi
-
-# CORS für lokale UI
-# Erlaubte Origins (Quellen) für Anfragen
-# Gib hier explizit die URL deines Frontends an
-origins = [
-    "https://flotte-app.onrender.com",
-    # Optional: Füge hier deine lokale Entwicklungs-URL hinzu, z.B. "http://localhost:5173"
-]
-
+# VOLLSTÄNDIGE CORS-Konfiguration für Render.com
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True, # Wichtig für zukünftige Erweiterungen (z.B. Login)
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_origins=[
+        "https://flotte-app.onrender.com",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:4173"
+    ],
+    allow_credentials=False,  # Wichtig: False bei spezifischen Origins
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=[
         "Accept",
-        "Accept-Language", 
+        "Accept-Encoding", 
+        "Accept-Language",
+        "Authorization",
+        "Cache-Control",
         "Content-Language",
         "Content-Type",
-        "Authorization",
-    ]
+        "DNT",
+        "If-Modified-Since",
+        "Keep-Alive",
+        "Origin",
+        "User-Agent",
+        "X-Requested-With",
+    ],
+    expose_headers=["*"],
+    max_age=86400,  # 24 Stunden
 )
+
+# Zusätzlicher OPTIONS-Handler für problematische Preflight-Requests
+@app.options("/{full_path:path}")
+async def options_handler():
+    return {"message": "OK"}
 
 # DB anlegen (falls nicht vorhanden)
 init_db()
