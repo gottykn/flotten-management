@@ -202,6 +202,77 @@ type Tab = typeof TABS[number];
 
 export default function RentalFleetApp() {
   const [baseUrl, setBaseUrl] = useState("https://flotte-api.onrender.com");
+  // 🚨 ERWEITERTE DIAGNOSE
+  useEffect(() => {
+    console.log("🚀 App loaded - Running comprehensive tests...");
+    
+    const comprehensiveTest = async () => {
+      // Test 1: Einfacher Health-Check
+      try {
+        console.log("🔹 Test 1: Health Check");
+        const healthResponse = await fetch(`${baseUrl}/health`, {
+          method: 'GET',
+        });
+        console.log("✅ Health status:", healthResponse.status);
+        const healthData = await healthResponse.json();
+        console.log("✅ Health data:", healthData);
+      } catch (error) {
+        console.error("❌ Health check failed:", error);
+      }
+
+      // Test 2: CORS Preflight Test
+      try {
+        console.log("🔹 Test 2: CORS Preflight");
+        const corsResponse = await fetch(`${baseUrl}/geraete`, {
+          method: 'OPTIONS',
+        });
+        console.log("✅ CORS Preflight status:", corsResponse.status);
+        console.log("✅ CORS Headers:", [...corsResponse.headers.entries()]);
+      } catch (error) {
+        console.error("❌ CORS Preflight failed:", error);
+      }
+
+      // Test 3: Actual API Call
+      try {
+        console.log("🔹 Test 3: Actual API Call");
+        const apiResponse = await fetch(`${baseUrl}/geraete`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        console.log("✅ API status:", apiResponse.status);
+        if (apiResponse.ok) {
+          const apiData = await apiResponse.json();
+          console.log("✅ API data:", apiData);
+        }
+      } catch (error) {
+        console.error("❌ API call failed:", error);
+      }
+
+      // Test 4: CSS Test
+      console.log("🔹 Test 4: CSS Test");
+      const testDiv = document.createElement('div');
+      testDiv.className = 'bg-red-500 p-4 text-white';
+      testDiv.textContent = 'CSS Test Element';
+      testDiv.style.cssText = 'position: fixed; top: 50px; right: 10px; z-index: 9999;';
+      document.body.appendChild(testDiv);
+      
+      setTimeout(() => {
+        const computedStyle = window.getComputedStyle(testDiv);
+        console.log("🎨 CSS Test - Background:", computedStyle.backgroundColor);
+        console.log("🎨 CSS Test - Padding:", computedStyle.padding);
+        if (computedStyle.backgroundColor === 'rgb(239, 68, 68)') {
+          console.log("✅ Tailwind CSS is working!");
+        } else {
+          console.log("❌ Tailwind CSS is NOT working!");
+        }
+        document.body.removeChild(testDiv);
+      }, 2000);
+    };
+    
+    comprehensiveTest();
+  }, [baseUrl]);
   const [tab, setTab] = useState<"geraete" | "vermietungen" | "berichte" | "einnahmen" | "stammdaten">("geraete");
   const [toast, setToast] = useState<string | null>(null);
 
